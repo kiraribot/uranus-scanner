@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: uranus-scanner
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: SPREADSHEET_ID
+        value: 1knSllsHeEML_zDU4DrEeVWsjSf38PWvmqszjrN_7BQw
+      - key: SHEET_NAME
+        value: 在庫管理
+      - key: BARCODE_COLUMN
+        value: A
+      - key: NAME_COLUMN
+        value: B
+      - key: STOCK_COLUMN
+        value: H
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false

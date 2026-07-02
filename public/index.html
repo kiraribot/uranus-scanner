@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>在庫スキャナー</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>在庫スキャナー</h1>
+    <div id="connection-status" class="status offline">オフライン検知中...</div>
+  </header>
+
+  <main>
+    <section class="mode-select">
+      <button class="mode-btn active" data-mode="sale">販売モード</button>
+      <button class="mode-btn" data-mode="restock">補充モード</button>
+      <button class="mode-btn" data-mode="manual">手動入力モード</button>
+    </section>
+
+    <section id="camera-section">
+      <div id="video-wrap">
+        <video id="video" playsinline></video>
+      </div>
+      <div class="camera-controls">
+        <button id="start-scan">カメラ起動</button>
+        <button id="stop-scan" disabled>停止</button>
+      </div>
+    </section>
+
+    <section id="manual-section" class="hidden">
+      <label>バーコード
+        <input id="manual-barcode" type="text" inputmode="numeric" placeholder="バーコードを入力">
+      </label>
+      <label id="manual-qty-label">在庫数量
+        <input id="manual-qty" type="number" min="0" value="1">
+      </label>
+      <button id="manual-submit">送信</button>
+    </section>
+
+    <section class="qty-section" id="qty-section">
+      <label>数量
+        <input id="scan-qty" type="number" min="1" value="1">
+      </label>
+    </section>
+
+    <section id="result-log">
+      <h2>処理履歴</h2>
+      <ul id="log-list"></ul>
+    </section>
+
+    <section id="queue-section">
+      <h2>未送信キュー <span id="queue-count">0</span> 件</h2>
+      <button id="flush-queue" disabled>今すぐ同期</button>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

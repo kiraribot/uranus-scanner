@@ -1,0 +1,92 @@
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+  margin: 0;
+  background: #f4f5f7;
+  color: #1c1e21;
+}
+header {
+  background: #1c1e21;
+  color: white;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header h1 { font-size: 18px; margin: 0; }
+.status {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.status.online { background: #2e7d32; }
+.status.offline { background: #c62828; }
+
+main { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+.mode-select { display: flex; gap: 8px; margin-bottom: 16px; }
+.mode-btn {
+  flex: 1;
+  padding: 10px 4px;
+  border: 1px solid #d0d3d8;
+  background: white;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.mode-btn.active { background: #1c1e21; color: white; border-color: #1c1e21; }
+
+#video-wrap {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: black;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+#video { width: 100%; height: 100%; object-fit: cover; }
+
+.camera-controls { display: flex; gap: 8px; margin-bottom: 16px; }
+.camera-controls button, #manual-submit, #flush-queue {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #1565c0;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+.camera-controls button:disabled, #flush-queue:disabled { background: #9aa0a6; cursor: not-allowed; }
+
+#manual-section, .qty-section { margin-bottom: 16px; }
+#manual-section label, .qty-section label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+#manual-section input, .qty-section input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d0d3d8;
+  border-radius: 8px;
+  font-size: 16px;
+  margin-top: 4px;
+}
+.hidden { display: none; }
+
+#result-log { margin-bottom: 16px; }
+#result-log h2, #queue-section h2 { font-size: 14px; margin-bottom: 8px; }
+#log-list { list-style: none; padding: 0; margin: 0; }
+#log-list li {
+  background: white;
+  border: 1px solid #e0e2e6;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+#log-list li.error { border-color: #c62828; color: #c62828; }
+#log-list li.queued { border-color: #ef6c00; color: #ef6c00; }
+
+#queue-section { display: flex; justify-content: space-between; align-items: center; }
