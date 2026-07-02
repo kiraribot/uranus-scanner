@@ -183,10 +183,9 @@
       els.startScan.disabled = true;
       els.stopScan.disabled = false;
 
-      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-      const deviceId = devices.length ? devices[devices.length - 1].deviceId : undefined;
+      const constraints = { video: { facingMode: 'environment' } };
 
-      state.codeReader.decodeFromVideoDevice(deviceId, els.video, (result, err) => {
+      state.codeReader.decodeFromConstraints(constraints, 'video', (result, err) => {
         if (result) {
           const now = Date.now();
           if (now - lastScanTime < SCAN_DEBOUNCE_MS) return;
