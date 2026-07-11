@@ -3,10 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>在庫スキャナー</title>
+<title>URANUS 在庫スキャナー</title>
 <link rel="stylesheet" href="style.css">
+<style>
+  /* v2追加スタイル */
+  .mode-select { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .mode-btn { padding: 12px 4px; font-size: 14px; }
+  .mode-btn[data-mode="sale"].active { background: #1d4ed8; color: #fff; }
+  .mode-btn[data-mode="return"].active { background: #0d9488; color: #fff; }
+  .mode-btn[data-mode="restock"].active { background: #15803d; color: #fff; }
+  .mode-btn[data-mode="promo"].active { background: #b45309; color: #fff; }
+  .mode-btn[data-mode="dispose"].active { background: #b91c1c; color: #fff; }
+  .mode-btn[data-mode="check"].active { background: #6d28d9; color: #fff; }
+  .mode-btn[data-mode="link"].active { background: #0f172a; color: #fff; }
+  .mode-btn[data-mode="manual"].active { background: #334155; color: #fff; }
+  .mode-desc { font-size: 12px; color: #555; margin: 6px 2px 0; min-height: 1.2em; }
+  #link-panel { border: 2px solid #0f172a; border-radius: 10px; padding: 10px; margin-top: 10px; }
+  #link-panel h3 { margin: 0 0 6px; font-size: 15px; }
+  #link-scanned { font-weight: bold; word-break: break-all; }
+  #link-candidates { list-style: none; padding: 0; margin: 8px 0 0; }
+  #link-candidates li { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; margin-bottom: 6px; background: #f8fafc; }
+  #link-candidates li.linked { opacity: 0.5; }
+  #link-candidates button { width: 100%; text-align: left; background: none; border: none; font-size: 14px; padding: 0; }
+  .flash-ok { animation: flashOk 0.6s; }
+  .flash-ng { animation: flashNg 0.6s; }
+  @keyframes flashOk { 0% { background: #bbf7d0; } 100% { background: transparent; } }
+  @keyframes flashNg { 0% { background: #fecaca; } 100% { background: transparent; } }
+  #pin-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.96); color: #fff;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99; }
+  #pin-overlay.hidden { display: none; }
+  #pin-overlay input { font-size: 24px; padding: 10px; width: 180px; text-align: center;
+    letter-spacing: 8px; border-radius: 8px; border: none; margin: 14px 0; }
+  #pin-overlay button { font-size: 16px; padding: 10px 30px; border-radius: 8px; border: none;
+    background: #1d4ed8; color: #fff; }
+  #pin-error { color: #fca5a5; font-size: 13px; min-height: 1.2em; margin-top: 8px; }
+</style>
 </head>
 <body>
+  <div id="pin-overlay" class="hidden">
+    <h2>暗証番号を入力</h2>
+    <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="8">
+    <button id="pin-submit">開く</button>
+    <div id="pin-error"></div>
+  </div>
+
   <header>
     <h1>在庫スキャナー</h1>
     <div id="connection-status" class="status offline">オフライン検知中...</div>
@@ -14,10 +54,16 @@
 
   <main>
     <section class="mode-select">
-      <button class="mode-btn active" data-mode="sale">販売モード</button>
-      <button class="mode-btn" data-mode="restock">補充モード</button>
-      <button class="mode-btn" data-mode="manual">手動入力モード</button>
+      <button class="mode-btn active" data-mode="sale">販売</button>
+      <button class="mode-btn" data-mode="return">返品</button>
+      <button class="mode-btn" data-mode="restock">入荷</button>
+      <button class="mode-btn" data-mode="promo">プロモ</button>
+      <button class="mode-btn" data-mode="dispose">破棄</button>
+      <button class="mode-btn" data-mode="check">照合</button>
+      <button class="mode-btn" data-mode="link">紐付け</button>
+      <button class="mode-btn" data-mode="manual">手動</button>
     </section>
+    <div class="mode-desc" id="mode-desc">スキャンすると在庫が1減ります(売れた時)</div>
 
     <section id="camera-section">
       <div id="video-wrap">
@@ -29,11 +75,21 @@
       </div>
     </section>
 
+    <section id="link-panel" class="hidden">
+      <h3>🔗 紐付けモード</h3>
+      <div>読み取ったバーコード: <span id="link-scanned">(未スキャン)</span></div>
+      <label>品番で帳簿を検索
+        <input id="link-hinban" type="text" placeholder="例: TSU075" autocapitalize="characters">
+      </label>
+      <button id="link-search">検索</button>
+      <ul id="link-candidates"></ul>
+    </section>
+
     <section id="manual-section" class="hidden">
       <label>バーコード
         <input id="manual-barcode" type="text" inputmode="numeric" placeholder="バーコードを入力">
       </label>
-      <label id="manual-qty-label">在庫数量
+      <label id="manual-qty-label">在庫数量(この数に上書き)
         <input id="manual-qty" type="number" min="0" value="1">
       </label>
       <button id="manual-submit">送信</button>
