@@ -2,15 +2,15 @@ const { google } = require('googleapis');
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1knSllsHeEML_zDU4DrEeVWsjSf38PWvmqszjrN_7BQw';
 const SHEET_NAME = process.env.SHEET_NAME || '在庫管理';
-const BARCODE_COLUMN = process.env.BARCODE_COLUMN || 'N';   // EAN(メーカーバーコード)列
-const HINBAN_COLUMN = process.env.HINBAN_COLUMN || 'B';     // 品番列
-const NAME_COLUMN = process.env.NAME_COLUMN || 'E';         // 品名列
-const COLOR_COLUMN = process.env.COLOR_COLUMN || 'F';       // カラー列
-const SIZE_COLUMN = process.env.SIZE_COLUMN || 'G';         // サイズ列
-const STOCK_COLUMN = process.env.STOCK_COLUMN || 'H';       // 在庫数列
-const PRICE_COLUMN = process.env.PRICE_COLUMN || 'I';       // 上代列
+const BARCODE_COLUMN = process.env.BARCODE_COLUMN || 'N';
+const HINBAN_COLUMN = process.env.HINBAN_COLUMN || 'B';
+const NAME_COLUMN = process.env.NAME_COLUMN || 'E';
+const COLOR_COLUMN = process.env.COLOR_COLUMN || 'F';
+const SIZE_COLUMN = process.env.SIZE_COLUMN || 'G';
+const STOCK_COLUMN = process.env.STOCK_COLUMN || 'H';
+const PRICE_COLUMN = process.env.PRICE_COLUMN || 'I';
 const HISTORY_SHEET = process.env.HISTORY_SHEET || '変更履歴';
-const DATA_START_ROW = Number(process.env.DATA_START_ROW || 5); // データ開始行
+const DATA_START_ROW = Number(process.env.DATA_START_ROW || 5);
 
 function loadCredentials() {
   if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
@@ -20,7 +20,6 @@ function loadCredentials() {
 }
 
 let sheetsClientPromise = null;
-
 async function getSheetsClient() {
   if (!sheetsClientPromise) {
     const auth = new google.auth.GoogleAuth({
@@ -39,14 +38,15 @@ function colToIndex(col) {
   return idx - 1;
 }
 
-async function getRowData(row) {
-  const sheets = await getSheetsClient();
-  const range = `${SHEET_NAME}!A${row}:${BARCODE_COLUMN}${row}`;
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
-  const v = (res.data.values && res.data.values[0]) || [];
+// 表記ゆれ吸収: 大文字化・全半角スペース除去
+function norm(s) {
+  return (s || '').toString().toUpperCase().replace(/[\s　]+/g, '').trim();
+}
+
+function rowFromValues(v, rowNum) {
   const pick = (col) => (v[colToIndex(col)] || '').toString().trim();
   return {
-    row,
+    row: rowNum,
     hinban: pick(HINBAN_COLUMN),
     name: pick(NAME_COLUMN),
     color: pick(COLOR_COLUMN),
@@ -55,6 +55,23 @@ async function getRowData(row) {
     price: pick(PRICE_COLUMN),
     barcode: pick(BARCODE_COLUMN),
   };
+}
+
+async function getAllRows() {
+  const sheets = await getSheetsClient();
+  const range = `${SHEET_NAME}!A${DATA_START_ROW}:${BARCODE_COLUMN}`;
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
+  const rows = res.data.values || [];
+  return rows.map((v, i) => rowFromValues(v, i + DATA_START_ROW))
+             .filter((r) => r.hinban);
+}
+
+async function getRowData(row) {
+  const sheets = await getSheetsClient();
+  const range = `${SHEET_NAME}!A${row}:${BARCODE_COLUMN}${row}`;
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
+  const v = (res.data.values && res.data.values[0]) || [];
+  return rowFromValues(v, row);
 }
 
 async function findRowByBarcode(barcode) {
@@ -68,30 +85,30 @@ async function findRowByBarcode(barcode) {
   return offset + DATA_START_ROW;
 }
 
+// 品番テキスト検索(予備用)
 async function searchByHinban(hinban) {
-  const sheets = await getSheetsClient();
-  const range = `${SHEET_NAME}!A${DATA_START_ROW}:${BARCODE_COLUMN}`;
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
-  const rows = res.data.values || [];
-  const target = hinban.trim().toUpperCase().replace(/\s+/g, '');
-  const results = [];
-  rows.forEach((v, i) => {
-    const pick = (col) => (v[colToIndex(col)] || '').toString().trim();
-    const h = pick(HINBAN_COLUMN).toUpperCase().replace(/\s+/g, '');
-    if (h && (h === target || h.includes(target))) {
-      results.push({
-        row: i + DATA_START_ROW,
-        hinban: pick(HINBAN_COLUMN),
-        name: pick(NAME_COLUMN),
-        color: pick(COLOR_COLUMN),
-        size: pick(SIZE_COLUMN),
-        stock: Number(pick(STOCK_COLUMN) || 0),
-        price: pick(PRICE_COLUMN),
-        barcode: pick(BARCODE_COLUMN),
-      });
-    }
-  });
-  return results.slice(0, 30);
+  const all = await getAllRows();
+  const target = norm(hinban);
+  return all.filter((r) => norm(r.hinban).includes(target)).slice(0, 30);
+}
+
+// 写真から読んだ「品番・色・サイズ」で候補を絞り込む(v3の心臓部)
+async function matchByTag({ hinban, color, size }) {
+  const all = await getAllRows();
+  const h = norm(hinban);
+  if (!h) return [];
+  let cand = all.filter((r) => norm(r.hinban) === h);
+  if (cand.length === 0) {
+    // 完全一致がなければ部分一致で救済
+    cand = all.filter((r) => norm(r.hinban).includes(h) || h.includes(norm(r.hinban)));
+  }
+  if (color && cand.some((r) => norm(r.color) === norm(color))) {
+    cand = cand.filter((r) => norm(r.color) === norm(color));
+  }
+  if (size && cand.some((r) => norm(r.size) === norm(size))) {
+    cand = cand.filter((r) => norm(r.size) === norm(size));
+  }
+  return cand.slice(0, 8);
 }
 
 async function updateCell(col, row, value) {
@@ -132,21 +149,23 @@ const MODE_DEF = {
 async function applyScan({ barcode, mode, quantity }) {
   const def = MODE_DEF[mode];
   if (!def) throw new Error(`不明なモード: ${mode}`);
-
   const row = await findRowByBarcode(barcode);
   if (!row) {
-    const err = new Error(`バーコード ${barcode} は未登録です(紐付けモードで登録できます)`);
+    const err = new Error('この商品はまだ登録されていません');
     err.code = 'NOT_FOUND';
     throw err;
   }
+  return applyScanToRow({ row, mode, quantity });
+}
+
+async function applyScanToRow({ row, mode, quantity }) {
+  const def = MODE_DEF[mode];
   const data = await getRowData(row);
   let newStock;
   if (mode === 'manual') newStock = quantity;
   else newStock = data.stock + def.sign * quantity;
-
   let clamped = false;
   if (newStock < 0) { newStock = 0; clamped = true; }
-
   await updateCell(STOCK_COLUMN, row, newStock);
   await appendHistory({
     hinban: data.hinban,
@@ -156,14 +175,13 @@ async function applyScan({ barcode, mode, quantity }) {
     after: newStock,
     delta: newStock - data.stock,
   });
-
   return { ...data, mode, modeLabel: def.label, previousStock: data.stock, newStock, clamped };
 }
 
 async function lookupBarcode(barcode) {
   const row = await findRowByBarcode(barcode);
   if (!row) {
-    const err = new Error(`バーコード ${barcode} は未登録です`);
+    const err = new Error('この商品はまだ登録されていません');
     err.code = 'NOT_FOUND';
     throw err;
   }
@@ -175,26 +193,31 @@ async function linkBarcode({ row, barcode }) {
   const existing = await findRowByBarcode(clean);
   if (existing && existing !== row) {
     const d = await getRowData(existing);
-    const err = new Error(`このバーコードは既に ${d.hinban} ${d.color} ${d.size} (行${existing}) に登録済みです`);
+    const err = new Error(`このバーコードは既に ${d.hinban} ${d.color} ${d.size} に登録済みです`);
     err.code = 'CONFLICT';
     throw err;
   }
   const data = await getRowData(row);
   if (data.barcode && data.barcode !== clean) {
-    const err = new Error(`行${row}には別のバーコード(${data.barcode})が登録済みです`);
+    const err = new Error('この行には別のバーコードが登録済みです');
     err.code = 'CONFLICT';
     throw err;
   }
-  await updateCell(BARCODE_COLUMN, row, clean);
-  await appendHistory({
-    hinban: data.hinban,
-    name: `${data.name} ${data.color} ${data.size}`.trim(),
-    action: `バーコード紐付け(${clean})`,
-    before: data.stock,
-    after: data.stock,
-    delta: 0,
-  });
+  if (data.barcode !== clean) {
+    await updateCell(BARCODE_COLUMN, row, clean);
+    await appendHistory({
+      hinban: data.hinban,
+      name: `${data.name} ${data.color} ${data.size}`.trim(),
+      action: `バーコード自動登録(${clean})`,
+      before: data.stock,
+      after: data.stock,
+      delta: 0,
+    });
+  }
   return { ...data, barcode: clean };
 }
 
-module.exports = { applyScan, lookupBarcode, searchByHinban, linkBarcode, MODE_DEF };
+module.exports = {
+  applyScan, applyScanToRow, lookupBarcode, searchByHinban,
+  matchByTag, linkBarcode, MODE_DEF,
+};

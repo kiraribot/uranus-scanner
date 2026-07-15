@@ -2,113 +2,192 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>URANUS 在庫スキャナー</title>
-<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>URANUS レジ</title>
 <style>
-  /* v2追加スタイル */
-  .mode-select { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .mode-btn { padding: 12px 4px; font-size: 14px; }
-  .mode-btn[data-mode="sale"].active { background: #1d4ed8; color: #fff; }
-  .mode-btn[data-mode="return"].active { background: #0d9488; color: #fff; }
-  .mode-btn[data-mode="restock"].active { background: #15803d; color: #fff; }
-  .mode-btn[data-mode="promo"].active { background: #b45309; color: #fff; }
-  .mode-btn[data-mode="dispose"].active { background: #b91c1c; color: #fff; }
-  .mode-btn[data-mode="check"].active { background: #6d28d9; color: #fff; }
-  .mode-btn[data-mode="link"].active { background: #0f172a; color: #fff; }
-  .mode-btn[data-mode="manual"].active { background: #334155; color: #fff; }
-  .mode-desc { font-size: 12px; color: #555; margin: 6px 2px 0; min-height: 1.2em; }
-  #link-panel { border: 2px solid #0f172a; border-radius: 10px; padding: 10px; margin-top: 10px; }
-  #link-panel h3 { margin: 0 0 6px; font-size: 15px; }
-  #link-scanned { font-weight: bold; word-break: break-all; }
-  #link-candidates { list-style: none; padding: 0; margin: 8px 0 0; }
-  #link-candidates li { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; margin-bottom: 6px; background: #f8fafc; }
-  #link-candidates li.linked { opacity: 0.5; }
-  #link-candidates button { width: 100%; text-align: left; background: none; border: none; font-size: 14px; padding: 0; }
-  .flash-ok { animation: flashOk 0.6s; }
-  .flash-ng { animation: flashNg 0.6s; }
-  @keyframes flashOk { 0% { background: #bbf7d0; } 100% { background: transparent; } }
-  @keyframes flashNg { 0% { background: #fecaca; } 100% { background: transparent; } }
-  #pin-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.96); color: #fff;
-    display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99; }
-  #pin-overlay.hidden { display: none; }
-  #pin-overlay input { font-size: 24px; padding: 10px; width: 180px; text-align: center;
-    letter-spacing: 8px; border-radius: 8px; border: none; margin: 14px 0; }
-  #pin-overlay button { font-size: 16px; padding: 10px 30px; border-radius: 8px; border: none;
-    background: #1d4ed8; color: #fff; }
-  #pin-error { color: #fca5a5; font-size: 13px; min-height: 1.2em; margin-top: 8px; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; font-family: -apple-system, "Hiragino Sans", sans-serif; background: #f1f5f9; padding-bottom: 30px; }
+  .hidden { display: none !important; }
+
+  /* 上部タブ: 4つだけ・でかく */
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px 8px 4px; background: #0f172a; }
+  .tab { border: none; border-radius: 12px; padding: 12px 2px; font-size: 15px; font-weight: bold; background: #334155; color: #cbd5e1; }
+  .tab .emoji { display: block; font-size: 24px; margin-bottom: 2px; }
+  .tab.active { background: #fff; color: #0f172a; }
+  .status-bar { background: #0f172a; color: #94a3b8; text-align: center; font-size: 12px; padding: 4px 0 8px; }
+  .status-bar.offline { color: #fca5a5; }
+
+  main { padding: 12px; max-width: 560px; margin: 0 auto; }
+  .mode-title { font-size: 20px; font-weight: bold; margin: 4px 2px 10px; }
+  .mode-title small { display: block; font-size: 13px; color: #64748b; font-weight: normal; margin-top: 2px; }
+
+  /* カメラ */
+  #video-wrap { border-radius: 16px; overflow: hidden; background: #000; aspect-ratio: 4/3; position: relative; }
+  #video { width: 100%; height: 100%; object-fit: cover; }
+  .scan-guide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .scan-guide div { border: 3px solid rgba(255,255,255,0.85); border-radius: 12px; width: 78%; height: 34%; }
+  .big-btn { display: block; width: 100%; border: none; border-radius: 16px; padding: 20px; font-size: 22px; font-weight: bold; margin-top: 12px; color: #fff; }
+  .big-btn:active { transform: scale(0.98); }
+  #start-scan { background: #1d4ed8; }
+  #stop-scan { background: #64748b; padding: 12px; font-size: 16px; }
+  .btn-green { background: #15803d; }
+  .btn-gray { background: #64748b; }
+
+  /* 結果カード */
+  #result-card { border-radius: 16px; padding: 18px; margin-top: 12px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  #result-card.ok { background: #dcfce7; }
+  #result-card.ng { background: #fee2e2; }
+  #result-main { font-size: 22px; font-weight: bold; line-height: 1.4; }
+  #result-sub { font-size: 16px; color: #334155; margin-top: 6px; }
+
+  /* その他メニュー */
+  .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .menu-btn { border: none; border-radius: 16px; padding: 26px 8px; font-size: 20px; font-weight: bold; color: #fff; }
+  .menu-btn .emoji { display: block; font-size: 30px; margin-bottom: 6px; }
+
+  /* 全画面オーバーレイ(写真・候補・PIN) */
+  .overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.97); color: #fff; z-index: 50;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; text-align: center; }
+  .overlay h2 { font-size: 24px; margin: 0 0 8px; }
+  .overlay p { font-size: 16px; color: #cbd5e1; margin: 0 0 18px; line-height: 1.6; }
+  .overlay .big-btn { max-width: 420px; }
+  .cand-list { width: 100%; max-width: 420px; max-height: 55vh; overflow-y: auto; }
+  .cand-btn { display: block; width: 100%; border: none; border-radius: 14px; background: #fff; color: #0f172a;
+    padding: 16px; font-size: 18px; font-weight: bold; margin-bottom: 10px; text-align: left; line-height: 1.5; }
+  .cand-btn small { display: block; font-size: 14px; color: #475569; font-weight: normal; }
+  #pin-input { font-size: 28px; padding: 12px; width: 220px; text-align: center; letter-spacing: 6px; border-radius: 12px; border: none; margin-bottom: 14px; }
+  .spin { border: 5px solid #334155; border-top-color: #fff; border-radius: 50%; width: 46px; height: 46px; animation: spin 0.9s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 履歴 */
+  #log-section h2 { font-size: 15px; color: #64748b; margin: 18px 2px 6px; }
+  #log-list { list-style: none; padding: 0; margin: 0; }
+  #log-list li { background: #fff; border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; font-size: 14px; line-height: 1.5; }
+  #log-list li.error { background: #fee2e2; }
+  #log-list li.queued { background: #fef9c3; }
+
+  /* 設定 */
+  .settings-block { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .settings-block h3 { margin: 0 0 8px; font-size: 16px; }
+  .settings-block input { width: 100%; font-size: 18px; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 8px; }
+  .settings-block button { border: none; border-radius: 10px; background: #0f172a; color: #fff; font-size: 16px; padding: 12px 18px; }
+  .qty-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; background:#fff; border-radius: 14px; padding: 12px; }
+  .qty-row label { font-size: 16px; font-weight: bold; }
+  .qty-row input { font-size: 22px; width: 90px; padding: 8px; text-align: center; border-radius: 10px; border: 1px solid #cbd5e1; }
+
+  .flash-ok { animation: flashOk 0.5s; } .flash-ng { animation: flashNg 0.5s; }
+  @keyframes flashOk { 0% { background: #86efac; } } @keyframes flashNg { 0% { background: #fca5a5; } }
 </style>
 </head>
 <body>
-  <div id="pin-overlay" class="hidden">
-    <h2>暗証番号を入力</h2>
-    <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="8">
-    <button id="pin-submit">開く</button>
-    <div id="pin-error"></div>
+
+  <!-- 暗証番号 -->
+  <div id="pin-overlay" class="overlay hidden">
+    <h2>🔒 暗証番号</h2>
+    <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="10">
+    <button id="pin-submit" class="big-btn btn-green" style="max-width:220px;">開く</button>
+    <p id="pin-error" style="color:#fca5a5; min-height:1.4em; margin-top:10px;"></p>
+  </div>
+
+  <!-- 写真オーバーレイ(はじめての商品) -->
+  <div id="photo-overlay" class="overlay hidden">
+    <h2>📷 はじめての商品です</h2>
+    <p>値札(タグ)の<b>文字全体</b>が写るように<br>写真を撮ってください。あとは自動です。</p>
+    <button id="photo-take" class="big-btn btn-green">写真をとる</button>
+    <button id="photo-cancel" class="big-btn btn-gray" style="font-size:16px;padding:12px;">やめる</button>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden">
+  </div>
+
+  <!-- 解析中 -->
+  <div id="busy-overlay" class="overlay hidden">
+    <div class="spin"></div>
+    <h2 id="busy-text">読み取り中...</h2>
+    <p>そのままお待ちください(数秒)</p>
+  </div>
+
+  <!-- 候補選択(2つ以上見つかった時だけ) -->
+  <div id="cand-overlay" class="overlay hidden">
+    <h2>どちらの商品ですか?</h2>
+    <p id="cand-note">当てはまるものをタップしてください</p>
+    <div class="cand-list" id="cand-list"></div>
+    <button id="cand-cancel" class="big-btn btn-gray" style="font-size:16px;padding:12px;">やめる</button>
   </div>
 
   <header>
-    <h1>在庫スキャナー</h1>
-    <div id="connection-status" class="status offline">オフライン検知中...</div>
+    <div class="tabs">
+      <button class="tab active" data-mode="sale"><span class="emoji">🛒</span>売れた</button>
+      <button class="tab" data-mode="restock"><span class="emoji">📦</span>入荷</button>
+      <button class="tab" data-mode="other"><span class="emoji">🔄</span>その他</button>
+      <button class="tab" data-mode="settings"><span class="emoji">⚙️</span>設定</button>
+    </div>
+    <div class="status-bar" id="connection-status">接続確認中...</div>
   </header>
 
   <main>
-    <section class="mode-select">
-      <button class="mode-btn active" data-mode="sale">販売</button>
-      <button class="mode-btn" data-mode="return">返品</button>
-      <button class="mode-btn" data-mode="restock">入荷</button>
-      <button class="mode-btn" data-mode="promo">プロモ</button>
-      <button class="mode-btn" data-mode="dispose">破棄</button>
-      <button class="mode-btn" data-mode="check">照合</button>
-      <button class="mode-btn" data-mode="link">紐付け</button>
-      <button class="mode-btn" data-mode="manual">手動</button>
-    </section>
-    <div class="mode-desc" id="mode-desc">スキャンすると在庫が1減ります(売れた時)</div>
+    <div class="mode-title" id="mode-title">🛒 売れたら、ピッ<small>バーコードにかざすだけ。在庫が1減ります</small></div>
 
+    <!-- カメラ画面 -->
     <section id="camera-section">
       <div id="video-wrap">
         <video id="video" playsinline></video>
+        <div class="scan-guide"><div></div></div>
       </div>
-      <div class="camera-controls">
-        <button id="start-scan">カメラ起動</button>
-        <button id="stop-scan" disabled>停止</button>
-      </div>
-    </section>
-
-    <section id="link-panel" class="hidden">
-      <h3>🔗 紐付けモード</h3>
-      <div>読み取ったバーコード: <span id="link-scanned">(未スキャン)</span></div>
-      <label>品番で帳簿を検索
-        <input id="link-hinban" type="text" placeholder="例: TSU075" autocapitalize="characters">
-      </label>
-      <button id="link-search">検索</button>
-      <ul id="link-candidates"></ul>
-    </section>
-
-    <section id="manual-section" class="hidden">
-      <label>バーコード
-        <input id="manual-barcode" type="text" inputmode="numeric" placeholder="バーコードを入力">
-      </label>
-      <label id="manual-qty-label">在庫数量(この数に上書き)
-        <input id="manual-qty" type="number" min="0" value="1">
-      </label>
-      <button id="manual-submit">送信</button>
-    </section>
-
-    <section class="qty-section" id="qty-section">
-      <label>数量
+      <button id="start-scan" class="big-btn">▶ スキャンを始める</button>
+      <button id="stop-scan" class="big-btn hidden">⏸ 一時停止</button>
+      <div class="qty-row" id="qty-row" style="display:none;">
+        <label>数量</label>
         <input id="scan-qty" type="number" min="1" value="1">
-      </label>
+        <span style="font-size:13px;color:#64748b;">個ずつ動きます</span>
+      </div>
+      <div id="result-card" class="hidden">
+        <div id="result-main"></div>
+        <div id="result-sub"></div>
+      </div>
     </section>
 
-    <section id="result-log">
-      <h2>処理履歴</h2>
+    <!-- その他メニュー -->
+    <section id="other-section" class="hidden">
+      <div class="menu-grid">
+        <button class="menu-btn" style="background:#0d9488;" data-submode="return"><span class="emoji">↩️</span>返品</button>
+        <button class="menu-btn" style="background:#b45309;" data-submode="promo"><span class="emoji">🎁</span>プロモ</button>
+        <button class="menu-btn" style="background:#b91c1c;" data-submode="dispose"><span class="emoji">🗑</span>破棄</button>
+        <button class="menu-btn" style="background:#6d28d9;" data-submode="check"><span class="emoji">🔍</span>かくにん</button>
+      </div>
+      <p style="font-size:14px;color:#64748b;line-height:1.7;margin-top:12px;">
+        ↩️返品=在庫がもどる / 🎁プロモ=売上と別で記録して減る<br>
+        🗑破棄=記録して減る / 🔍かくにん=見るだけ(在庫は動かない)
+      </p>
+    </section>
+
+    <!-- 設定 -->
+    <section id="settings-section" class="hidden">
+      <div class="settings-block">
+        <h3>🔑 暗証番号を入れ直す</h3>
+        <button id="reset-pin">暗証番号をリセット</button>
+      </div>
+      <div class="settings-block">
+        <h3>⌨️ 予備: 品番で手さがし(写真がうまくいかない時だけ)</h3>
+        <input id="manual-hinban" type="text" placeholder="品番の一部 (例: TSU075)" autocapitalize="characters">
+        <button id="manual-search">さがす</button>
+        <div id="manual-results"></div>
+      </div>
+      <div class="settings-block">
+        <h3>✏️ 予備: 在庫数を直接なおす</h3>
+        <input id="fix-barcode" type="text" inputmode="numeric" placeholder="バーコード番号">
+        <input id="fix-qty" type="number" min="0" placeholder="正しい在庫数">
+        <button id="fix-submit">この数に上書き</button>
+      </div>
+    </section>
+
+    <!-- 処理履歴 -->
+    <section id="log-section">
+      <h2>きろく(新しい順)</h2>
       <ul id="log-list"></ul>
     </section>
 
-    <section id="queue-section">
-      <h2>未送信キュー <span id="queue-count">0</span> 件</h2>
-      <button id="flush-queue" disabled>今すぐ同期</button>
+    <section id="queue-section" class="hidden">
+      <h2 style="font-size:15px;color:#b45309;">未送信 <span id="queue-count">0</span> 件(電波が戻ると自動送信)</h2>
+      <button id="flush-queue" class="big-btn btn-gray" style="font-size:15px;padding:10px;">今すぐ送信</button>
     </section>
   </main>
 
