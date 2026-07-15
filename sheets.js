@@ -2,13 +2,16 @@ const { google } = require('googleapis');
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1knSllsHeEML_zDU4DrEeVWsjSf38PWvmqszjrN_7BQw';
 const SHEET_NAME = process.env.SHEET_NAME || '在庫管理';
-const BARCODE_COLUMN = process.env.BARCODE_COLUMN || 'N';
+const BARCODE_COLUMN = process.env.BARCODE_COLUMN || 'A';
 const HINBAN_COLUMN = process.env.HINBAN_COLUMN || 'B';
-const NAME_COLUMN = process.env.NAME_COLUMN || 'E';
-const COLOR_COLUMN = process.env.COLOR_COLUMN || 'F';
-const SIZE_COLUMN = process.env.SIZE_COLUMN || 'G';
-const STOCK_COLUMN = process.env.STOCK_COLUMN || 'H';
-const PRICE_COLUMN = process.env.PRICE_COLUMN || 'I';
+const NAME_COLUMN = process.env.NAME_COLUMN || 'C';
+const COLOR_COLUMN = process.env.COLOR_COLUMN || 'D';
+const SIZE_COLUMN = process.env.SIZE_COLUMN || 'E';
+const STOCK_COLUMN = process.env.STOCK_COLUMN || 'F';
+const PRICE_COLUMN = process.env.PRICE_COLUMN || 'G';
+const UPDATED_COLUMN = process.env.UPDATED_COLUMN || 'H';
+// データ範囲の右端列(新レイアウトでは最終更新のH列が最右)
+const LAST_COLUMN = process.env.LAST_COLUMN || UPDATED_COLUMN;
 const HISTORY_SHEET = process.env.HISTORY_SHEET || '変更履歴';
 const DATA_START_ROW = Number(process.env.DATA_START_ROW || 5);
 
@@ -59,7 +62,7 @@ function rowFromValues(v, rowNum) {
 
 async function getAllRows() {
   const sheets = await getSheetsClient();
-  const range = `${SHEET_NAME}!A${DATA_START_ROW}:${BARCODE_COLUMN}`;
+  const range = `${SHEET_NAME}!A${DATA_START_ROW}:${LAST_COLUMN}`;
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
   const rows = res.data.values || [];
   return rows.map((v, i) => rowFromValues(v, i + DATA_START_ROW))
@@ -68,7 +71,7 @@ async function getAllRows() {
 
 async function getRowData(row) {
   const sheets = await getSheetsClient();
-  const range = `${SHEET_NAME}!A${row}:${BARCODE_COLUMN}${row}`;
+  const range = `${SHEET_NAME}!A${row}:${LAST_COLUMN}${row}`;
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
   const v = (res.data.values && res.data.values[0]) || [];
   return rowFromValues(v, row);
@@ -167,6 +170,8 @@ async function applyScanToRow({ row, mode, quantity }) {
   let clamped = false;
   if (newStock < 0) { newStock = 0; clamped = true; }
   await updateCell(STOCK_COLUMN, row, newStock);
+  // 最終更新日時をH列に記録
+  await updateCell(UPDATED_COLUMN, row, new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }));
   await appendHistory({
     hinban: data.hinban,
     name: `${data.name} ${data.color} ${data.size}`.trim(),
